@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SimplifyMySpace.Core</RootNamespace>
+    <AssemblyName>SimplifyMySpace.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Localization/*.json" />
+    <InternalsVisibleTo Include="SimplifyMySpace.Core.Tests" />
+  </ItemGroup>
+
+</Project>

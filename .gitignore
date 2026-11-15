@@ -1,0 +1,54 @@
+## Build output, safe to delete: make clean
+build/
+bin/
+obj/
+*.user
+*.suo
+artifacts/
+publish/
+*.nupkg
+*.snupkg
+
+## Test results
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+
+## Packaging output
+*.app/
+*.dmg
+*.pkg
+*.msi
+
+## Signing and secrets
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.pem
+*.key
+.env
+.env.local
+*.local.json
+
+## IDE, keeping the shared VS Code launch and tasks
+.vs/
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+*.swp
+*~
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Design exports stay local
+design/
+
+## Markdown stays local, except the README
+*.md
+!/README.md

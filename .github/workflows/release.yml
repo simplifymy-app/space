@@ -1,0 +1,162 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  VPK_VERSION: '1.2.0'
+
+jobs:
+  prepare:
+    name: Check and draft
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag matches the app version
+        id: version
+        run: |
+          version=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' Directory.Build.props | head -1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match <Version> $version in Directory.Build.props"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes from commit messages
+        run: |
+          previous=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          range="${previous:+$previous..}$GITHUB_REF_NAME"
+          for sha in $(git log --no-merges --format=%H "$range"); do
+            subject=$(git log -1 --format=%s "$sha")
+            case "$subject" in ci:*|docs:*) continue ;; esac
+            printf '### %s\n\n' "$(echo "${subject#*: }" | awk '{ print toupper(substr($0, 1, 1)) substr($0, 2) }')"
+            git log -1 --format=%b "$sha" | grep -v '^- Bump version to ' | sed 's/</\&lt;/g' || true
+            echo
+          done > notes.md
+          if [ -n "$previous" ]; then
+            echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$previous...$GITHUB_REF_NAME" >> notes.md
+          fi
+          cat notes.md
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "$GITHUB_REF_NAME already has a release, a previous run did not finish. Reusing it."
+            gh release edit "$GITHUB_REF_NAME" --draft=true --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+              --title "Space ${GITHUB_REF_NAME}" \
+              --notes-file notes.md
+          fi
+
+  macos:
+    name: Test and pack macOS
+    needs: prepare
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Run the tests
+        run: dotnet test tests/Core.Tests -c Release
+
+      - name: Install Velopack
+        run: |
+          dotnet tool install -g vpk --version "$VPK_VERSION"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Pack
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          for runtime in osx-arm64 osx-x64; do
+            RUNTIME=$runtime sh scripts/macos/pack.sh
+          done
+          ls -la build/releases
+
+      - name: Upload to the draft release
+        env:
+          VPK_TOKEN: ${{ github.token }}
+        run: |
+          for runtime in osx-arm64 osx-x64; do
+            vpk upload github \
+              --repoUrl "${{ github.server_url }}/${{ github.repository }}" \
+              --outputDir build/releases \
+              --channel "$runtime" \
+              --tag "$GITHUB_REF_NAME" \
+              --releaseName "Space $GITHUB_REF_NAME" \
+              --targetCommitish "${{ github.sha }}" \
+              --merge
+          done
+
+  windows:
+    name: Pack Windows
+    needs: [prepare, macos]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install Velopack
+        run: |
+          dotnet tool install -g vpk --version "$VPK_VERSION"
+          echo "$USERPROFILE/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Pack
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SIGN_PARAMS: ${{ secrets.WINDOWS_SIGN_PARAMS }}
+        run: |
+          for runtime in win-x64 win-arm64; do
+            RUNTIME=$runtime sh scripts/windows/pack.sh
+          done
+          ls -la build/releases
+
+      - name: Upload to the draft release
+        env:
+          VPK_TOKEN: ${{ github.token }}
+        run: |
+          for runtime in win-x64 win-arm64; do
+            vpk upload github \
+              --repoUrl "${{ github.server_url }}/${{ github.repository }}" \
+              --outputDir build/releases \
+              --channel "$runtime" \
+              --tag "$GITHUB_REF_NAME" \
+              --releaseName "Space $GITHUB_REF_NAME" \
+              --targetCommitish "${{ github.sha }}" \
+              --merge
+          done
+
+  publish:
+    name: Publish
+    needs: [prepare, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"

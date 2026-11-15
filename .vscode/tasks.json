@@ -1,0 +1,54 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "DOTNET_ROOT": "${env:HOME}/.dotnet",
+      "PATH": "${env:HOME}/.dotnet:${env:PATH}"
+    }
+  },
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/App/App.csproj",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary;ForceNoAlign"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "test",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["test", "${workspaceFolder}/tests/Core.Tests"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "watch",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["watch", "run", "--project", "${workspaceFolder}/src/App/App.csproj"],
+      "problemMatcher": "$msCompile",
+      "isBackground": true
+    },
+    {
+      "label": "publish",
+      "command": "make",
+      "type": "process",
+      "args": ["publish"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "check-windows",
+      "command": "make",
+      "type": "process",
+      "args": ["check-windows"],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

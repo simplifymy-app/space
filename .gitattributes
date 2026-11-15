@@ -1,0 +1,8 @@
+* text=auto
+*.sh text eol=lf
+Makefile text eol=lf
+*.png binary
+*.bmp binary
+*.icns binary
+*.ico binary
+*.ttf binary

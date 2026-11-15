@@ -1,0 +1,11 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SimplifyMySpace.App.App"
+             Name="Simplify my Space">
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://SimplifyMySpace/Theme/Controls.axaml" />
+  </Application.Styles>
+
+</Application>
